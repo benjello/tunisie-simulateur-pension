@@ -57,22 +57,52 @@ conversation. Origine : relais de la session « fiche de paie »
   fond.
 
 **À faire (reste)** :
-- **Déploiement shinyapps.io — scaffolding PRÊT, en attente de la release PyPI 0.164.**
-  Fait : mode `local` (in-process) dans `app/openfisca_client.py`
-  (`OPENFISCA_MODE=local` → `TunisiaPensionTaxBenefitSystem`), validé ; dossier
-  `deploy/shinyapps/` (app.py entrypoint, requirements, push.sh, README) + mode
-  api inchangé ; `rsconnect-python` au groupe dev ; compte `benjello` déjà
-  autorisé. Archi : **in-process, un seul service, pas de HF Space**. Bundle et
-  entrypoint `app:app` testés.
-  **Il ne reste que**, quand 0.164 est sur PyPI
-  (`https://pypi.org/pypi/openfisca-tunisia/json` ; 0.163 au 2026-11-12) :
-  1. (optionnel) `pyproject.toml` → `openfisca-tunisia[pension]>=0.164` ; `uv sync`.
-  2. **Déployer** : `deploy/shinyapps/push.sh benjello simulateur-pension-tunisie`.
-  Repli avant la release : basculer `deploy/shinyapps/requirements.txt` sur le
-  fallback git (`openfisca-tunisia[pension] @ git+https://github.com/openfisca/openfisca-tunisia`).
-  Plan gratuit = 25 h actives/mois partagées paie+pension.
+- **App DÉPLOYÉE** : https://benjello.shinyapps.io/simulateur-pension-tunisie/
+  (0.164 installé, correctif d'éligibilité actif ; archi in-process, un seul
+  service, pas de HF Space). `pyproject` bumpé à `openfisca-tunisia[pension]>=0.164`.
+- **CI/CD GitHub en place** : `.github/workflows/ci.yml` (tests YAML pension à
+  chaque push/PR) et `deploy.yml` (déploiement auto sur shinyapps.io à chaque push
+  sur `main` touchant `app/**` ou `deploy/shinyapps/**`, ou via `workflow_dispatch`).
+  Secrets repo posés : `SHINYAPPS_ACCOUNT`, `SHINYAPPS_TOKEN`, `SHINYAPPS_SECRET`.
+  Plan gratuit shinyapps = 25 h actives/mois partagées paie+pension.
+- Déploiement manuel toujours possible : `deploy/shinyapps/push.sh benjello simulateur-pension-tunisie`.
+  (NB : les secrets ne sont pas encore posés sur le repo paie — son `deploy.yml`
+  ne tournerait pas sans eux.)
 - Reports juridiques résiduels R-1..R-5 (`desaccords.md`).
 - Relier chaque cas de test à sa source (mapping dans `sources_locales/`).
+
+## Améliorations de l'app (todos priorisés)
+
+**Top 3 (fort impact, faible coût, s'appuie sur des variables déjà exposées) :**
+- [ ] **Taux de remplacement** : afficher `pension / dernier salaire` (indicateur clé).
+- [ ] **Explication du taux en clair** : « 40 % (10 premières années) + 2 %/an × N = … », mention du plafond quand il mord.
+- [ ] **Détail actualisé du salaire de référence** : par année retenue, salaire nominal + salaire actualisé (coefficient appliqué) → lève la confusion actualisation.
+
+**Pédagogie & transparence :**
+- [ ] Base légale à côté des résultats (décret 74-499 art. 15/17 ; loi 85-12 art. 36/38).
+- [ ] Afficher la version d'openfisca-tunisia et le millésime des paramètres.
+- [ ] Jauges « il vous manque X » : années pour le taux plein (80/90 %), âge minimal d'ouverture.
+- [ ] Rappeler les hypothèses (salaire constant en mode simplifié, actualisation).
+
+**Couverture fonctionnelle (briques déjà dans le moteur — cf. `tests_pension/`) :**
+- [ ] Départ anticipé + décote (convenance perso −0,5 %/trim, mères 3 enfants, travaux pénibles 55 ans) ; montrer l'effet de l'âge de départ.
+- [ ] Pensions de survivants (réversion conjoint, orphelins).
+- [ ] Minimum / plafond en contexte : valeurs 2/3 SMIG et 6×SMIG de l'année ; signaler « remontée au minimum » / « écrêtée ».
+- [ ] Exposer RSA quand paramétré ; `pension_servie` quand le bug amont est corrigé ; autres régimes.
+
+**Ergonomie de saisie :**
+- [ ] Carrière en progression (salaire initial → final + taux de croissance) pour pré-remplir la grille.
+- [ ] Import/coller la carrière (CSV/Excel) ; export du résultat (PDF/CSV).
+- [ ] Comparateur : RSNA vs CNRPS côte à côte, ou plusieurs scénarios d'âge de départ.
+- [ ] Garde-fous : incohérences date de naissance / durée / année de liquidation signalées.
+
+**Visualisation :**
+- [ ] Courbe pension en fonction de l'âge de départ (décote) ; taux vs durée ; sensibilité « +1 an = +X DT ».
+
+**Technique :**
+- [ ] Pré-chauffage numba au boot en mode local (1er calcul JIT lent sur shinyapps.io).
+- [ ] Tests de l'app : unit client (modes api/local) + smoke Playwright.
+- [ ] Bilingue FR/AR (réutiliser `i18n.py` de la paie ; sources openfisca/précis bilingues).
 - **Committer** (`/commit`) puis créer le repo public GitHub
   `benjello/tunisie-simulateur-pension` et pousser.
 - Confronter les cas aux simulateurs en ligne (`sources_locales/`) et relier

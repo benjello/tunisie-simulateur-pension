@@ -486,14 +486,14 @@ web-api = [
 
 [[package]]
 name = "openfisca-tunisia"
-version = "0.163"
+version = "0.164"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "openfisca-core", extra = ["web-api"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/95/1a/a9753dc489181a95461715df36e56f36f482a94bcfd99dd3a5576b6b7fe8/openfisca_tunisia-0.163.tar.gz", hash = "sha256:be213baff42c7a79c3e3d155318f7f0fa4b16c88d1ee9e164e68aa3e99f429fd", size = 3680780, upload-time = "2026-11-11T08:02:39.292Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/00/2f78be269f0a7d74addd796e105079dbcd7cef50ef6cad3fba1cf020b49e/openfisca_tunisia-0.164.tar.gz", hash = "sha256:ab43f2836fad9e8687a5a29ce7bf0d676373913a3c7a614da1588d02994359e8", size = 3681674, upload-time = "2026-11-12T16:38:04.528Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1c/2d/6f69e1c6b865847dcaa72060b8c9719fb4fb37429169312ccbd45358f9a8/openfisca_tunisia-0.163-py3-none-any.whl", hash = "sha256:fd83197d926e7a07486d6ab765c1f4104d58fe7a3692665628407ca66fda388c", size = 5154606, upload-time = "2026-11-11T08:02:37.381Z" },
+    { url = "https://files.pythonhosted.org/packages/33/96/d3f254f0069b590a3f5627f4f2bfe6634a464e0cd37a56f34a842b06c21b/openfisca_tunisia-0.164-py3-none-any.whl", hash = "sha256:37272933df3d0e449fad689862a5f0019734df5b623762c827359650b4bbf783", size = 5154689, upload-time = "2026-11-12T16:38:02.531Z" },
 ]
 
 [package.optional-dependencies]
@@ -985,7 +985,7 @@ dev = [
 requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "openfisca-core", extras = ["web-api"], specifier = ">=43" },
-    { name = "openfisca-tunisia", extras = ["pension"], specifier = ">=0.159" },
+    { name = "openfisca-tunisia", extras = ["pension"], specifier = ">=0.164" },
     { name = "pandas", specifier = ">=3.1.1" },
     { name = "shiny", specifier = ">=1.0" },
 ]
