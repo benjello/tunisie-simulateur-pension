@@ -21,6 +21,7 @@ Repository = "https://github.com/benjello/tunisie-simulateur-pension"
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "rsconnect-python>=1.33.2",
 ]
 
 [tool.uv]

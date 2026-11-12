@@ -1,11 +1,20 @@
-"""Client de l'API web OpenFisca-Tunisia — package des pensions.
+"""Client OpenFisca-Tunisia — package des pensions.
 
 L'app Shiny ne calcule rien elle-même : elle construit la carrière d'un assuré
 (salaire année par année, durée d'assurance, âge déduit de la date de naissance),
-la poste à l'API OpenFisca-Tunisia (country-package `openfisca_tunisia_pension`),
-et lit les résultats dans la réponse. OpenFisca reste le seul moteur de calcul.
+puis demande les résultats au moteur `openfisca_tunisia_pension`. OpenFisca reste
+le seul moteur de calcul.
 
-En local, lancer l'API avec :
+Deux modes, selon la variable d'environnement OPENFISCA_MODE :
+- "api" (défaut) : poste la situation à l'API web sur OPENFISCA_API_URL
+  (développement local, API séparée).
+- "local" : calcule en direct, dans le même process, via
+  TunisiaPensionTaxBenefitSystem. Utilisé en déploiement (shinyapps.io) où un
+  seul service tourne.
+
+Les deux modes consomment le MÊME format de situation JSON.
+
+En mode api local, lancer l'API avec :
     openfisca serve -c openfisca_tunisia_pension -p 5001
 """
 
@@ -17,6 +26,59 @@ import httpx
 
 # URL de l'API OpenFisca pension. Surchargée par OPENFISCA_API_URL.
 API_URL = os.environ.get("OPENFISCA_API_URL", "http://localhost:5001")
+
+# Mode de calcul : "api" (HTTP) ou "local" (moteur in-process).
+MODE = os.environ.get("OPENFISCA_MODE", "api").lower()
+
+# TaxBenefitSystem chargé paresseusement en mode local (coûteux à l'import,
+# exige numba).
+_TBS = None
+
+
+def _get_tbs():
+    global _TBS
+    if _TBS is None:
+        from openfisca_tunisia_pension import CountryTaxBenefitSystem
+
+        _TBS = CountryTaxBenefitSystem()
+    return _TBS
+
+
+def _calculate_local(situation: dict) -> dict:
+    """Calcule en direct via SimulationBuilder et renvoie le résultat au format API.
+
+    Toutes les variables à `None` dans la situation sont calculées et remplies,
+    pour chaque période demandée ; on imite la structure de réponse de l'API.
+    """
+    from openfisca_core.simulations import SimulationBuilder
+
+    tbs = _get_tbs()
+    builder = SimulationBuilder()
+    simulation = builder.build_from_entities(tbs, situation)
+
+    resultat = {k: {} for k in situation}
+    for collection, entites in situation.items():
+        for ident, variables in entites.items():
+            resultat[collection][ident] = {}
+            for variable, periodes in variables.items():
+                if not isinstance(periodes, dict):
+                    resultat[collection][ident][variable] = periodes
+                    continue
+                resultat[collection][ident][variable] = {}
+                for periode, valeur in periodes.items():
+                    if valeur is None:
+                        valeur = float(simulation.calculate(variable, periode)[0])
+                    resultat[collection][ident][variable][periode] = valeur
+    return resultat
+
+
+def _calculate(situation: dict, *, timeout: float = 30.0) -> dict:
+    """Route le calcul vers l'API HTTP ou le moteur local selon OPENFISCA_MODE."""
+    if MODE == "local":
+        return _calculate_local(situation)
+    reponse = httpx.post(f"{API_URL}/calculate", json=situation, timeout=timeout)
+    reponse.raise_for_status()
+    return reponse.json()
 
 # Régimes exposés (clé openfisca -> libellé UI). RSA n'est pas exposé : son
 # barème d'annuités n'est pas paramétré aux années récentes (voir backlog).
@@ -86,11 +148,10 @@ def construire_situation(
 def calculer(
     situation: dict, *, regime: str, annee_liquidation: int, timeout: float = 30.0
 ) -> dict:
-    """Poste la situation et renvoie les sorties pension à la liquidation."""
+    """Calcule la situation (API ou local) et renvoie les sorties à la liquidation."""
     an = str(annee_liquidation)
-    reponse = httpx.post(f"{API_URL}/calculate", json=situation, timeout=timeout)
-    reponse.raise_for_status()
-    individu = reponse.json()["individus"]["ind0"]
+    data = _calculate(situation, timeout=timeout)
+    individu = data["individus"]["ind0"]
     return {cle: individu.get(f"{regime}_{cle}", {}).get(an) for cle in SORTIES_CLES}
 
 
@@ -127,7 +188,12 @@ def details_par_periode(
 
 
 def api_disponible(timeout: float = 3.0) -> bool:
-    """Teste si l'API OpenFisca pension répond (message clair dans l'UI)."""
+    """Teste la disponibilité du moteur (message clair dans l'UI).
+
+    En mode local, le moteur est toujours disponible (calcul in-process).
+    """
+    if MODE == "local":
+        return True
     try:
         return httpx.get(f"{API_URL}/spec", timeout=timeout).status_code == 200
     except httpx.HTTPError:
