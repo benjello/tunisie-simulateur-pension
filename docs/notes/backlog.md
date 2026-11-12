@@ -32,7 +32,30 @@ conversation. Origine : relais de la session « fiche de paie »
 - **Test du plancher** (pension minimale CNRPS ≈ 2751,11 DT/an 2020) ajouté →
   **20/20 tests passés**.
 
+- **Correctif modèle appliqué (openfisca-tunisia, source locale)** : éligibilité
+  RSNA/RSA `duree_assurance > 4×stage_requis` → **`>=`** (décret 74-499 art. 15 :
+  « justifier d'un stage de 120 mois » ouvre le droit ; précis
+  `retraites/_secteur_prive.qmd` confirmant). Corrigé dans `variables/rsna.py`,
+  `regimes/rsna.py`, `variables/rsa.py`, `regimes/rsa.py` ; test de non-régression
+  `tests_pension/formulas/rsna/eligible.yaml` ajouté. **280 tests pension OK**.
+  À 10 ans pile : RSNA passe de 0 à 12 482 DT/an (2020). CNRPS inchangé (min 15
+  ans, `>=` déjà correct).
+- **App refondue (2 modes + carrière + date de naissance + détails par période)** :
+  mode **simplifié** (salaire mensuel + durée) et mode **carrière détaillée**
+  (grille éditable salaire/trimestres par année, pandas) ; âge déduit de la date
+  de naissance ; panneau « Détails par période » listant chaque variable
+  pertinente. Testé end-to-end contre l'API de la source corrigée. Dépendance
+  `pandas` ajoutée (`uv add pandas`).
+
 **À faire (reste)** :
+- **Committer le correctif dans openfisca-tunisia** (dépôt séparé, source locale
+  modifiée non commitée) : 4 fichiers + `tests_pension/formulas/rsna/eligible.yaml`.
+- **Committer la refonte de l'app** dans ce dépôt (app/app.py, app/openfisca_client.py,
+  app/README.md, pyproject+uv.lock pour pandas, docs/notes).
+- Faire tourner l'API du simulateur sur la **source corrigée** tant que le paquet
+  PyPI n'intègre pas le correctif (sinon 10 ans RSNA = 0 dans l'app).
+- Comparer les résultats de l'app aux **simulateurs en ligne** (sources_locales) :
+  reste à faire (demande utilisateur en cours).
 - **Committer** (`/commit`) puis créer le repo public GitHub
   `benjello/tunisie-simulateur-pension` et pousser.
 - Confronter les cas aux simulateurs en ligne (`sources_locales/`) et relier

@@ -30,17 +30,31 @@ OPENFISCA_API_URL=https://mon-api-pension.example uv run shiny run app/app.py
 
 ## Fichiers
 
-- `openfisca_client.py` — construction de la carrière et appels `/calculate`
-  (variables préfixées par régime : `rsna_*`, `cnrps_*`).
-- `app.py` — interface Shiny (entrées : régime, année de liquidation, salaire,
-  durée d'assurance, âge ; sorties : salaire de référence, taux de liquidation,
-  pension brute et servie).
+- `openfisca_client.py` — construction de la carrière (salaire année par année,
+  durée d'assurance, âge déduit de la date de naissance) et appels `/calculate`
+  (variables préfixées par régime : `rsna_*`, `cnrps_*`) ; détails par période.
+- `app.py` — interface Shiny à deux modes.
+
+## Deux modes de saisie
+
+- **Simplifié** : salaire mensuel constant + durée d'assurance (années).
+- **Carrière détaillée** : grille **éditable** (salaire annuel et trimestres
+  validés, année par année) ; la durée d'assurance est la somme des trimestres.
+
+Dans les deux modes, l'**âge à la liquidation** est déduit de la **date de
+naissance**. Un panneau « Détails par période » liste chaque variable pertinente
+(`salaire_de_base` par année, puis `salaire_de_reference`, `taux_de_liquidation`,
+`pension_brute`, `pension_minimale`, `pension`, `eligible` à la liquidation).
 
 ## Périmètre actuel
 
-Régimes **RSNA** (privé CNSS) et **CNRPS** (public). Hypothèse : salaire
-constant sur la carrière (suffisant pour la fenêtre de référence RSNA de 10 ans
-et pour le dernier salaire CNRPS). Le régime **RSA** (agricole) n'est pas exposé :
+Régimes **RSNA** (privé CNSS) et **CNRPS** (public).
+
+> **API avec le correctif d'éligibilité.** Le correctif « 120 mois ouvrent le
+> droit » (RSNA/RSA, `>` → `>=`) vit dans la source locale d'openfisca-tunisia,
+> pas encore dans le paquet PyPI. Pour que l'app en tienne compte, lancer l'API
+> depuis le venv de la source corrigée :
+> `…/openfisca-tunisia/.venv/bin/openfisca serve -c openfisca_tunisia_pension -p 5001`. Le régime **RSA** (agricole) n'est pas exposé :
 son barème d'annuités n'est pas paramétré aux années récentes dans le modèle
 (voir `docs/notes/backlog.md`). `pension_servie` (revalorisation post-liquidation)
 n'est pas exposée : la variable est cassée dans le modèle (dépend de

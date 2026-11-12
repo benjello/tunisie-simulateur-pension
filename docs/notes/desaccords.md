@@ -81,3 +81,14 @@ Sources primaires vérifiées (recherche juridique 2026-11-12) :
 - **R-4** : extension du régime 57 ans jusqu'à 2027 — confirmer au JORT (LF 2025).
 - **R-5** : le modèle expose un **plancher** (`*_pension_minimale` ≈ 2751,11 DT/an
   en 2020) ; sa correspondance exacte avec 2/3 SMIG de l'année reste à vérifier.
+- **R-6 — écart modèle/loi sur l'ouverture du droit RSNA (inégalité stricte)** :
+  `rsna_eligible` teste `duree_assurance > 4 × stage_requis` (strict), avec
+  `stage_requis = 10 ans = 40 trimestres`. Conséquence : **10 ans pile (120 mois,
+  40 trimestres) ne donne aucune pension** ; il faut 10 ans + 1 trimestre
+  (41 trim → 12 638 DT/an en 2020). Or le décret 74-499 art. 15 b) exige
+  « 120 mois de cotisations », donc les 120 mois **exacts** devraient ouvrir le
+  droit (`≥`, pas `>`). À corriger dans openfisca-tunisia
+  (`openfisca_tunisia_pension/variables/rsna.py`, condition `duree_stage_accomplie`).
+  L'éligibilité exige aussi `age ≥ age_legal` (60 RSNA / 62 CNRPS) : un âge
+  inférieur met aussi la pension à 0. Pour la CNRPS, le minimum **15 ans**
+  (loi 85-12 art. 22) rend 0 à 10 ans conforme.
