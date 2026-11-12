@@ -57,25 +57,20 @@ conversation. Origine : relais de la session « fiche de paie »
   fond.
 
 **À faire (reste)** :
-- **Déploiement shinyapps.io — EN ATTENTE de la release PyPI 0.164.** Décision :
-  ne pas déployer tant que `openfisca-tunisia` 0.164 n'est pas sur PyPI (sinon
-  l'app publique tournerait en 0.163, sans le correctif → 10 ans RSNA = 0).
-  Vérifier : `https://pypi.org/pypi/openfisca-tunisia/json` (0.163 au 2026-11-12).
-  Quand 0.164 est là :
-  1. `pyproject.toml` → `openfisca-tunisia[pension]>=0.164` ; `uv sync`.
-  2. Ajouter le **mode `local`** (in-process) à `app/openfisca_client.py` (si
-     `OPENFISCA_MODE=local` → calcul via `TunisiaPensionTaxBenefitSystem` au lieu
-     de httpx), sur le modèle de `tunisie-simulateur-paie/app/openfisca_client.py`.
-  3. Créer `deploy/shinyapps/` (entrypoint `app.py` forçant `OPENFISCA_MODE=local`,
-     `requirements.txt` avec `openfisca-tunisia[pension]>=0.164` + `pandas`,
-     `push.sh` adapté) — copier la structure de la session paie.
-  4. Déployer : `deploy/shinyapps/push.sh benjello simulateur-pension-tunisie`
-     (compte `benjello` déjà autorisé ; **pas de HF Space**, moteur en direct ;
-     app shinyapps distincte de la paie).
-- Archi retenue (comme la paie) : **in-process sur shinyapps.io**, pas d'API HTTP
-  séparée ni de Space. Plan gratuit = 25 h actives/mois partagées paie+pension.
-- Repli immédiat si besoin avant la release : requirements depuis git
-  (`openfisca-tunisia[pension] @ git+https://github.com/openfisca/openfisca-tunisia`).
+- **Déploiement shinyapps.io — scaffolding PRÊT, en attente de la release PyPI 0.164.**
+  Fait : mode `local` (in-process) dans `app/openfisca_client.py`
+  (`OPENFISCA_MODE=local` → `TunisiaPensionTaxBenefitSystem`), validé ; dossier
+  `deploy/shinyapps/` (app.py entrypoint, requirements, push.sh, README) + mode
+  api inchangé ; `rsconnect-python` au groupe dev ; compte `benjello` déjà
+  autorisé. Archi : **in-process, un seul service, pas de HF Space**. Bundle et
+  entrypoint `app:app` testés.
+  **Il ne reste que**, quand 0.164 est sur PyPI
+  (`https://pypi.org/pypi/openfisca-tunisia/json` ; 0.163 au 2026-11-12) :
+  1. (optionnel) `pyproject.toml` → `openfisca-tunisia[pension]>=0.164` ; `uv sync`.
+  2. **Déployer** : `deploy/shinyapps/push.sh benjello simulateur-pension-tunisie`.
+  Repli avant la release : basculer `deploy/shinyapps/requirements.txt` sur le
+  fallback git (`openfisca-tunisia[pension] @ git+https://github.com/openfisca/openfisca-tunisia`).
+  Plan gratuit = 25 h actives/mois partagées paie+pension.
 - Reports juridiques résiduels R-1..R-5 (`desaccords.md`).
 - Relier chaque cas de test à sa source (mapping dans `sources_locales/`).
 - **Committer** (`/commit`) puis créer le repo public GitHub
