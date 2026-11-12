@@ -1,0 +1,140 @@
+# Pension — régime CNRPS (secteur public).
+#
+# Valeurs attendues = moteur OpenFisca-Tunisia, package openfisca_tunisia_pension,
+# vérifiées par le calcul (SimulationBuilder) le 2026-11-12. Cas comparés hors
+# dépôt à des simulateurs de pension en ligne (voir sources_locales/).
+#
+# Barème CNRPS : 2 %/an les 10 premières années, 3 %/an les suivantes, plafond
+# 90 %. Minimum d'ouverture du droit : 15 ans. Salaire de référence fourni
+# directement (dernier salaire, sans plafond). pension_brute = taux × SR ;
+# pension = borne(min ≤ brute ≤ max).
+
+# --- Taux de liquidation (barème CNRPS, période 2020) -------------------------
+
+- name: CNRPS — taux, 5 ans (20 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 20
+  output:
+    cnrps_taux_de_liquidation: 0.1
+
+- name: CNRPS — taux, 10 ans (40 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 40
+  output:
+    cnrps_taux_de_liquidation: 0.2
+
+- name: CNRPS — taux, 13 ans (52 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 52
+  output:
+    cnrps_taux_de_liquidation: 0.29
+
+- name: CNRPS — taux, 21 ans (84 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 84
+  output:
+    cnrps_taux_de_liquidation: 0.52
+
+- name: CNRPS — taux, 31 ans (124 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 124
+  output:
+    cnrps_taux_de_liquidation: 0.72
+
+- name: CNRPS — taux, 40 ans (160 trimestres), plafond 90 %
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    cnrps_duree_assurance: 160
+  output:
+    cnrps_taux_de_liquidation: 0.9
+
+# --- Pension (salaire de référence élevé : la formule domine le minimum) -------
+# SR = 30000 DT/an. pension_brute = taux × 30000.
+
+- name: CNRPS — 20 ans, SR 30000 (taux 50 %)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 80
+    cnrps_salaire_de_reference: 30000
+  output:
+    cnrps_taux_de_liquidation: 0.5
+    cnrps_pension_brute: 15000
+    cnrps_pension: 15000
+
+- name: CNRPS — 30 ans, SR 30000 (taux 70 %)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 120
+    cnrps_salaire_de_reference: 30000
+  output:
+    cnrps_taux_de_liquidation: 0.7
+    cnrps_pension_brute: 21000
+    cnrps_pension: 21000
+
+- name: CNRPS — 40 ans, SR 30000 (taux plafond 90 %)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 160
+    cnrps_salaire_de_reference: 30000
+  output:
+    cnrps_taux_de_liquidation: 0.9
+    cnrps_pension_brute: 27000
+    cnrps_pension: 27000
+
+# --- Éligibilité : minimum 15 ans ---------------------------------------------
+# En deçà de 15 ans, pas de pension (droit non ouvert).
+
+- name: CNRPS — 10 ans, SR 30000 → inéligible (0)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 40
+    cnrps_salaire_de_reference: 30000
+  output:
+    cnrps_pension: 0
+
+- name: CNRPS — 15 ans, SR 30000 → éligible (taux 35 %)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 60
+    cnrps_salaire_de_reference: 30000
+  output:
+    cnrps_taux_de_liquidation: 0.35
+    cnrps_pension: 10500
+
+# --- Plancher (pension minimale) ----------------------------------------------
+# Quand la pension brute (taux × SR) tombe sous le minimum, la pension servie est
+# relevée au minimum (≈ 2751,11 DT/an en 2020 ; correspondance avec 2/3 SMIG à
+# vérifier — voir desaccords.md R-5). Art. 39 loi n° 85-12 : plancher 2/3 SMIG.
+
+- name: CNRPS — 30 ans, SR faible 600 → pension relevée au minimum
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 62
+    cnrps_duree_assurance: 120
+    cnrps_salaire_de_reference: 600
+  output:
+    cnrps_pension_brute: 420
+    cnrps_pension_minimale: 2751.1084
+    cnrps_pension: 2751.1084

@@ -1,0 +1,137 @@
+# Pension — régime CNSS non agricole (RSNA, privé).
+#
+# Valeurs attendues = moteur OpenFisca-Tunisia, package openfisca_tunisia_pension,
+# vérifiées par le calcul (SimulationBuilder) le 2026-11-12. Cas comparés hors
+# dépôt à des simulateurs de pension en ligne (voir sources_locales/).
+#
+# Chaîne : duree_assurance (trimestres) -> taux_de_liquidation (barème) ;
+#          salaire_de_base (historique) -> salaire_de_reference (10 dernières
+#          années actualisées) ; pension_brute = taux × salaire_de_reference ;
+#          pension = borne(min ≤ brute ≤ max).
+#
+# NB : pension_servie (revalorisation post-liquidation) n'est pas testée : la
+# variable dépend de rsna_pension_au_31_decembre, absente du système chargé
+# (lacune modèle, voir docs/notes/backlog.md).
+
+# --- Taux de liquidation (barème RSNA, période 2020) --------------------------
+# 40 % pour les 10 premières années, +2 %/an ensuite, plafond 80 %.
+
+- name: RSNA — taux, 5 ans (20 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 20
+  output:
+    rsna_taux_de_liquidation: 0.2
+
+- name: RSNA — taux, 10 ans (40 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 40
+  output:
+    rsna_taux_de_liquidation: 0.4
+
+- name: RSNA — taux, 13 ans (52 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 52
+  output:
+    rsna_taux_de_liquidation: 0.46
+
+- name: RSNA — taux, 21 ans (84 trimestres)
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 84
+  output:
+    rsna_taux_de_liquidation: 0.62
+
+- name: RSNA — taux, 31 ans (124 trimestres), plafond 80 %
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 124
+  output:
+    rsna_taux_de_liquidation: 0.8
+
+- name: RSNA — taux, 40 ans (160 trimestres), plafonné à 80 %
+  period: 2020
+  absolute_error_margin: 1e-10
+  input:
+    rsna_duree_assurance: 160
+  output:
+    rsna_taux_de_liquidation: 0.8
+
+# --- Salaire de référence et pension (salaire constant 24000 DT/an) -----------
+# Carrière 1980-2020 à 24000 DT/an. Salaire de référence = moyenne des 10
+# dernières années actualisées (barème d'actualisation du moteur) = 31205,568 DT.
+
+- name: RSNA — 25 ans, salaire 24000, liquidation 2020
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 60
+    rsna_duree_assurance: 100
+    rsna_salaire_de_base:
+      1980: 24000
+      1985: 24000
+      1990: 24000
+      1995: 24000
+      2000: 24000
+      2001: 24000
+      2002: 24000
+      2003: 24000
+      2004: 24000
+      2005: 24000
+      2006: 24000
+      2007: 24000
+      2008: 24000
+      2009: 24000
+      2010: 24000
+      2011: 24000
+      2012: 24000
+      2013: 24000
+      2014: 24000
+      2015: 24000
+      2016: 24000
+      2017: 24000
+      2018: 24000
+      2019: 24000
+      2020: 24000
+  output:
+    rsna_salaire_de_reference: 31205.568
+    rsna_taux_de_liquidation: 0.7
+    rsna_pension_brute: 21843.898
+    rsna_pension: 21843.898
+
+- name: RSNA — 40 ans, salaire 24000, liquidation 2020 (taux plafonné 80 %)
+  period: 2020
+  absolute_error_margin: 0.01
+  input:
+    age: 60
+    rsna_duree_assurance: 160
+    rsna_salaire_de_base:
+      1980: 24000
+      1985: 24000
+      1990: 24000
+      1995: 24000
+      2000: 24000
+      2005: 24000
+      2010: 24000
+      2011: 24000
+      2012: 24000
+      2013: 24000
+      2014: 24000
+      2015: 24000
+      2016: 24000
+      2017: 24000
+      2018: 24000
+      2019: 24000
+      2020: 24000
+  output:
+    rsna_salaire_de_reference: 31205.568
+    rsna_taux_de_liquidation: 0.8
+    rsna_pension_brute: 24964.455
+    rsna_pension: 24964.455
