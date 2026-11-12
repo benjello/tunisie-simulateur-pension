@@ -57,9 +57,22 @@ conversation. Origine : relais de la session « fiche de paie »
   fond.
 
 **À faire (reste)** :
-- **App DÉPLOYÉE** : https://benjello.shinyapps.io/simulateur-pension-tunisie/
-  (0.164 installé, correctif d'éligibilité actif ; archi in-process, un seul
-  service, pas de HF Space). `pyproject` bumpé à `openfisca-tunisia[pension]>=0.164`.
+- **App DÉPLOYÉE et fonctionnelle** : https://benjello.shinyapps.io/simulateur-pension-tunisie/
+  (app-id shinyapps **18429443** ; archi in-process, un seul service, pas de HF
+  Space). `pyproject` bumpé à `openfisca-tunisia[pension]>=0.164`.
+- **Correctif lecture seule déployé** : l'import de `openfisca_tunisia_pension`
+  écrivait dans un site-packages en lecture seule → `PermissionError` au 1er
+  calcul. Corrigé par openfisca-tunisia **PR #528** (0.164→0.165). En attendant la
+  release PyPI 0.165, `deploy/shinyapps/requirements.txt` installe openfisca depuis
+  la **branche git** `fix/pension-script-ast-lecture-seule`. Vérifié via les logs
+  shinyapps : plus de `PermissionError`, le moteur se charge.
+- **CD robuste (anti-doublon)** : `deploy.yml` et `push.sh` passent `--app-id
+  18429443` (sans lui, un checkout neuf recrée une app « …1 »). Doublon
+  `simulateur-pension-tunisie1` supprimé. Kit `.env`/`.env.example`/`scripts/
+  set_shinyapps_secrets.sh` déposé par la session paie, **adapté** pension (titre,
+  pas d'`i18n.py`, requirements). Secrets GitHub posés.
+  À FAIRE : dès 0.165 sur PyPI, rebasculer `requirements.txt` sur
+  `openfisca-tunisia[pension]>=0.165` (retirer le git-ref). Merger la PR #528.
 - **CI/CD GitHub en place** : `.github/workflows/ci.yml` (tests YAML pension à
   chaque push/PR) et `deploy.yml` (déploiement auto sur shinyapps.io à chaque push
   sur `main` touchant `app/**` ou `deploy/shinyapps/**`, ou via `workflow_dispatch`).

@@ -16,8 +16,11 @@
 #
 set -euo pipefail
 
-COMPTE="${1:?Usage: push.sh <compte> [nom-app]}"
+COMPTE="${1:?Usage: push.sh <compte> [nom-app] [app-id]}"
 APPNAME="${2:-simulateur-pension-tunisie}"
+# app-id de l'app shinyapps existante : cible le bon contenu et évite de créer
+# un doublon « …1 » à chaque déploiement depuis un répertoire neuf.
+APPID="${3:-18429443}"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUNDLE="$(mktemp -d)"
@@ -41,6 +44,7 @@ ls -1 "$BUNDLE"
 # rsconnect depuis le venv du projet (uv).
 "$ROOT/.venv/bin/rsconnect" deploy shiny "$BUNDLE" \
   --name "$COMPTE" \
+  --app-id "$APPID" \
   --title "$APPNAME" \
   --entrypoint app:app
 

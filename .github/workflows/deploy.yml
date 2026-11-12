@@ -41,9 +41,12 @@ jobs:
           SHINYAPPS_TOKEN: ${{ secrets.SHINYAPPS_TOKEN }}
           SHINYAPPS_SECRET: ${{ secrets.SHINYAPPS_SECRET }}
         run: |
+          # --app-id cible l'app existante : sans lui, chaque run d'un checkout
+          # neuf (sans métadonnée rsconnect) recrée une app (doublon « …1 »).
           rsconnect deploy shiny bundle \
             --account "$SHINYAPPS_ACCOUNT" \
             --token "$SHINYAPPS_TOKEN" \
             --secret "$SHINYAPPS_SECRET" \
+            --app-id 18429443 \
             --title simulateur-pension-tunisie \
             --entrypoint app:app
