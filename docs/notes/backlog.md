@@ -47,15 +47,22 @@ conversation. Origine : relais de la session « fiche de paie »
   pertinente. Testé end-to-end contre l'API de la source corrigée. Dépendance
   `pandas` ajoutée (`uv add pandas`).
 
+- **Correctif mergé en amont** : PR
+  [#527](https://github.com/openfisca/openfisca-tunisia/pull/527) mergée sur
+  `master` d'openfisca-tunisia, **version 0.164**. Vérifié sur master : RSNA
+  10 ans pile → éligible, 12 482 DT/an.
+- **Refonte de l'app commitée et poussée** (`cca9758`, `origin/main`).
+- **Comparaison aux simulateurs en ligne faite** : concordance exacte sur taux et
+  formule (voir `sources_locales/comparaison_simulateurs.md`). Aucun désaccord de
+  fond.
+
 **À faire (reste)** :
-- **Committer le correctif dans openfisca-tunisia** (dépôt séparé, source locale
-  modifiée non commitée) : 4 fichiers + `tests_pension/formulas/rsna/eligible.yaml`.
-- **Committer la refonte de l'app** dans ce dépôt (app/app.py, app/openfisca_client.py,
-  app/README.md, pyproject+uv.lock pour pandas, docs/notes).
-- Faire tourner l'API du simulateur sur la **source corrigée** tant que le paquet
-  PyPI n'intègre pas le correctif (sinon 10 ans RSNA = 0 dans l'app).
-- Comparer les résultats de l'app aux **simulateurs en ligne** (sources_locales) :
-  reste à faire (demande utilisateur en cours).
+- **Bump de dépendance** : passer `openfisca-tunisia[pension]>=0.164` dans
+  `pyproject.toml` dès que **0.164 est publié sur PyPI** (le correctif y sera) ;
+  `uv sync`. En attendant, l'API du simulateur peut tourner sur la source locale
+  d'openfisca-tunisia pour bénéficier du correctif.
+- Reports juridiques résiduels R-1..R-5 (`desaccords.md`).
+- Relier chaque cas de test à sa source (mapping dans `sources_locales/`).
 - **Committer** (`/commit`) puis créer le repo public GitHub
   `benjello/tunisie-simulateur-pension` et pousser.
 - Confronter les cas aux simulateurs en ligne (`sources_locales/`) et relier
