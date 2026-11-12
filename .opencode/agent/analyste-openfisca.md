@@ -1,4 +1,5 @@
 ---
+mode: subagent
 name: analyste-openfisca
 description: Analyste du modèle OpenFisca-Tunisia (pensions). Cartographie variables, barèmes d'annuités et taux de liquidation, vérifie par le calcul. Lecture seule, économe en tokens.
 tools: read, grep, find, ls, bash
