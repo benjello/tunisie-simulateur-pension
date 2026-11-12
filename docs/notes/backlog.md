@@ -71,8 +71,15 @@ conversation. Origine : relais de la session « fiche de paie »
   `simulateur-pension-tunisie1` supprimé. Kit `.env`/`.env.example`/`scripts/
   set_shinyapps_secrets.sh` déposé par la session paie, **adapté** pension (titre,
   pas d'`i18n.py`, requirements). Secrets GitHub posés.
-  À FAIRE : dès 0.165 sur PyPI, rebasculer `requirements.txt` sur
-  `openfisca-tunisia[pension]>=0.165` (retirer le git-ref). Merger la PR #528.
+- **PR #528 mergée** sur master d'openfisca-tunisia (branche supprimée). CD
+  validé de bout en bout : push → GitHub Actions → rsconnect `--app-id` →
+  shinyapps build depuis `@master`. Secret GitHub corrigé (le `.env` avait un
+  secret tronqué de 1 car. ; réparé depuis `servers.json`).
+  À FAIRE : dès **0.165 sur PyPI** (CI en cours), rebasculer
+  `deploy/shinyapps/requirements.txt` du git-ref `@master` vers
+  `openfisca-tunisia[pension]>=0.165` (pin propre). Archiver le doublon
+  `simulateur-pension-tunisie1` (sleeping) depuis le dashboard shinyapps
+  (l'API refuse de supprimer une app `sleeping`).
 - **CI/CD GitHub en place** : `.github/workflows/ci.yml` (tests YAML pension à
   chaque push/PR) et `deploy.yml` (déploiement auto sur shinyapps.io à chaque push
   sur `main` touchant `app/**` ou `deploy/shinyapps/**`, ou via `workflow_dispatch`).
