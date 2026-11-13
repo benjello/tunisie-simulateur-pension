@@ -1,5 +1,10 @@
 # Backlog durable — simulateur de pension
 
+> ⚠️ **Point d'arrêt 2026-11-13** : voir [`en-attente-2026-11-13.md`](en-attente-2026-11-13.md)
+> pour l'état complet, notamment le **travail NON COMMITÉ sur disque** (net fiscal,
+> repin 0.165, refonte UX en cours) — git était bloqué.
+
+
 Reports et pistes à suivre, versés ici pour ne pas vivre uniquement dans une
 conversation. Origine : relais de la session « fiche de paie »
 (`docs/notes/relais-pension.md`).

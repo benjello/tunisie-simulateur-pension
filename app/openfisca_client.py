@@ -355,6 +355,48 @@ def objectif_inverse(
     return {"atteignable": True, "duree": round(hi, 2), "pension": pension_pour(hi)}
 
 
+# TaxBenefitSystem FISCAL (package openfisca_tunisia) pour l'IRPP + CSS sur la
+# pension. Chargé paresseusement, toujours in-process (le paquet est installé).
+_TBS_FISCAL = None
+
+
+def _get_tbs_fiscal():
+    global _TBS_FISCAL
+    if _TBS_FISCAL is None:
+        from openfisca_tunisia import CountryTaxBenefitSystem
+
+        _TBS_FISCAL = CountryTaxBenefitSystem()
+    return _TBS_FISCAL
+
+
+def calculer_net_fiscal(pension_annuelle_brute, annee):
+    """Applique l'IRPP et la CSS à la pension (abattement pension 25 %, art. 26-II
+    du code de l'IRPP ; relevé à 30/40/50 % en 2027-2029).
+
+    Renvoie {irpp, css, net} (montants annuels). Calcul in-process via le package
+    fiscal `openfisca_tunisia`, indépendamment d'OPENFISCA_MODE.
+    """
+    from openfisca_core.simulations import SimulationBuilder
+
+    brut = float(pension_annuelle_brute or 0)
+    if brut <= 0:
+        return {"irpp": 0.0, "css": 0.0, "net": 0.0}
+    an = str(annee)
+    tbs = _get_tbs_fiscal()
+    sit = {
+        "individus": {"i": {"revenu_assimile_pension": {an: brut}}},
+        "foyers_fiscaux": {"f": {"declarants": ["i"]}},
+        "menages": {"m": {"personne_de_reference": ["i"]}},
+    }
+    sim = SimulationBuilder().build_from_entities(tbs, sit)
+    irpp = float(sim.calculate("irpp", an)[0])
+    try:
+        css = float(sim.calculate("contribution_sociale_solidarite", an)[0])
+    except Exception:
+        css = 0.0
+    return {"irpp": irpp, "css": css, "net": brut - irpp - css}
+
+
 def api_disponible(timeout: float = 3.0) -> bool:
     """Teste la disponibilité du moteur (message clair dans l'UI).
 

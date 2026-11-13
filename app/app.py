@@ -35,6 +35,7 @@ from openfisca_client import (  # noqa: E402
     age_a_la_liquidation,
     api_disponible,
     calculer,
+    calculer_net_fiscal,
     calculer_survivants,
     carriere_constante,
     comparer_ages,
@@ -89,49 +90,65 @@ def _expliquer_taux(regime: str, duree_annees: float, taux) -> str:
 
 app_ui = ui.page_sidebar(
     ui.sidebar(
-        ui.input_select("regime", "Régime de retraite", REGIMES, selected="rsna"),
-        ui.input_date("naissance", "Date de naissance", value="1960-01-01",
+        # — Entonnoir : l'essentiel d'abord, le reste replié —
+        ui.h5("Ma situation"),
+        ui.input_select("regime", "Dans quel régime cotisez-vous ?", REGIMES, selected="rsna"),
+        ui.input_date("naissance", "Votre date de naissance", value="1960-01-01",
                       min="1930-01-01", max="2010-12-31", startview="decade"),
-        ui.input_select("annee_liq", "Année de liquidation", ANNEES_LIQ, selected="2020"),
-        ui.input_radio_buttons("mode", "Mode de saisie",
-                               {"simple": "Simplifié", "avance": "Carrière détaillée"},
+        ui.input_select("annee_liq", "Année de départ à la retraite", ANNEES_LIQ, selected="2020"),
+        ui.input_radio_buttons("mode", "Comment décrire vos revenus ?",
+                               {"simple": "Salaire moyen (simple)",
+                                "avance": "Carrière année par année"},
                                selected="simple"),
         ui.panel_conditional(
             "input.mode === 'simple'",
-            ui.input_numeric("salaire_mensuel", "Salaire mensuel (DT)", 2000, min=0, step=100),
-            ui.input_numeric("duree", "Durée d'assurance (années)", 30, min=0, max=50, step=1),
+            ui.input_numeric("salaire_mensuel", "Votre salaire mensuel actuel (DT)", 2000, min=0, step=100),
+            ui.input_numeric("duree", "Combien d'années avez-vous cotisé ?", 30, min=0, max=50, step=1),
         ),
         ui.panel_conditional(
             "input.mode === 'avance'",
             ui.input_numeric("nb_annees", "Nombre d'années de carrière", 30, min=1, max=50, step=1),
-            ui.input_numeric("salaire_init", "Salaire annuel initial (DT)", 24000, min=0, step=1000),
-            ui.input_action_button("generer", "Générer / réinitialiser la carrière",
+            ui.input_numeric("salaire_init", "Salaire annuel de départ (DT)", 24000, min=0, step=1000),
+            ui.input_action_button("generer", "Générer la grille de carrière",
                                    class_="btn-secondary btn-sm"),
+            ui.help_text("Éditez ensuite le salaire et les trimestres année par année "
+                         "dans le tableau à droite."),
         ),
-        # Options propres à la CNRPS -----------------------------------------
-        ui.panel_conditional(
-            "input.regime === 'cnrps'",
-            ui.hr(),
-            ui.h6("Options CNRPS"),
-            ui.input_numeric("cadre_actif", "Service en cadre actif (années)", 0, min=0, max=45, step=1),
-            ui.input_numeric("militaire", "Service militaire (années)", 0, min=0, max=45, step=1),
-            ui.input_numeric("cnss_annees", "Durée cotisée à la CNSS (années, carrière mixte)", 0, min=0, max=45, step=1),
-            ui.input_checkbox("mere3", "Mère de 3 enfants"),
-            ui.input_checkbox("astreignant", "Fonction astreignante"),
-            ui.input_checkbox("sur_demande", "Départ anticipé sur demande"),
-            ui.input_checkbox("invalidite", "Invalidité physique"),
-            ui.input_numeric("nb_enfants", "Enfants à charge", 0, min=0, max=10, step=1),
-            ui.input_checkbox("conjoint_sans_revenu", "Conjoint sans revenu"),
+        ui.input_action_button("calculer", "Calculer ma pension", class_="btn-primary"),
+        ui.hr(),
+        ui.help_text("Options facultatives — n'ouvrez une rubrique que si elle vous concerne."),
+        ui.accordion(
+            ui.accordion_panel(
+                "Secteur public (CNRPS) : bonifications, départ anticipé…",
+                ui.panel_conditional(
+                    "input.regime === 'cnrps'",
+                    ui.input_numeric("cadre_actif", "Années de service en cadre actif", 0, min=0, max=45, step=1),
+                    ui.input_numeric("militaire", "Années de service militaire", 0, min=0, max=45, step=1),
+                    ui.input_numeric("cnss_annees", "Années aussi cotisées à la CNSS (carrière mixte)", 0, min=0, max=45, step=1),
+                    ui.input_checkbox("mere3", "Êtes-vous mère de 3 enfants ?"),
+                    ui.input_checkbox("astreignant", "Fonction astreignante ?"),
+                    ui.input_checkbox("sur_demande", "Départ anticipé sur demande ?"),
+                    ui.input_checkbox("invalidite", "Invalidité physique ?"),
+                    ui.input_numeric("nb_enfants", "Enfants à charge", 0, min=0, max=10, step=1),
+                    ui.input_checkbox("conjoint_sans_revenu", "Conjoint sans revenu ?"),
+                ),
+                ui.panel_conditional(
+                    "input.regime !== 'cnrps'",
+                    ui.help_text("Ces options concernent le régime CNRPS (secteur public). "
+                                 "Choisissez CNRPS ci-dessus pour les renseigner."),
+                ),
+            ),
+            ui.accordion_panel(
+                "En cas de décès : pensions de survivants",
+                ui.input_checkbox("conjoint_survivant", "Avez-vous un conjoint survivant ?"),
+                ui.input_numeric("nb_orphelins", "Nombre d'enfants orphelins", 0, min=0, max=10, step=1),
+            ),
+            ui.accordion_panel(
+                "Aller plus loin : objectif de pension",
+                ui.input_numeric("pension_cible", "Quelle pension mensuelle visez-vous ? (DT, 0 = ignorer)", 0, min=0, step=100),
+            ),
+            open=False, multiple=False, id="acc_options",
         ),
-        ui.hr(),
-        ui.h6("Survivants (en cas de décès)"),
-        ui.input_checkbox("conjoint_survivant", "Conjoint survivant éligible"),
-        ui.input_numeric("nb_orphelins", "Nombre d'orphelins", 0, min=0, max=10, step=1),
-        ui.hr(),
-        ui.h6("Objectif inverse"),
-        ui.input_numeric("pension_cible", "Pension mensuelle visée (DT, 0 = désactivé)", 0, min=0, step=100),
-        ui.hr(),
-        ui.input_action_button("calculer", "Calculer la pension", class_="btn-primary"),
         width=360,
     ),
     ui.h3("Simulateur de pension — Tunisie"),
@@ -279,8 +296,27 @@ def server(input, output, session):
             ui.tags.td(_fmt(pension_an / 12.0, "DT"), style="text-align:right;font-weight:700;")))
         if tr is not None:
             lignes.append(ui.tags.tr(
-                ui.tags.td("Taux de remplacement (pension / dernier salaire)", style="font-weight:700;"),
-                ui.tags.td(_fmt(tr, "%"), style="text-align:right;font-weight:700;")))
+                ui.tags.td("Taux de remplacement brut (pension / dernier salaire)"),
+                ui.tags.td(_fmt(tr, "%"), style="text-align:right;")))
+
+        # Fiscalité : IRPP + CSS sur la pension → net.
+        if pension_an > 0:
+            nf = calculer_net_fiscal(pension_an, int(input.annee_liq()))
+            tr_net = taux_de_remplacement(nf["net"], dernier_salaire)
+            lignes += [
+                ui.tags.tr(ui.tags.td("IRPP (abattement pension 25 %)"),
+                           ui.tags.td(_fmt(-nf["irpp"], "DT"), style="text-align:right;")),
+                ui.tags.tr(ui.tags.td("CSS (contribution solidarité)"),
+                           ui.tags.td(_fmt(-nf["css"], "DT"), style="text-align:right;")),
+                ui.tags.tr(ui.tags.td("Pension NETTE (annuelle)", style="font-weight:700;"),
+                           ui.tags.td(_fmt(nf["net"], "DT"), style="text-align:right;font-weight:700;")),
+                ui.tags.tr(ui.tags.td("Pension NETTE (mensuelle, ÷12)", style="font-weight:700;"),
+                           ui.tags.td(_fmt(nf["net"] / 12.0, "DT"), style="text-align:right;font-weight:700;")),
+            ]
+            if tr_net is not None:
+                lignes.append(ui.tags.tr(
+                    ui.tags.td("Taux de remplacement NET", style="font-weight:700;"),
+                    ui.tags.td(_fmt(tr_net, "%"), style="text-align:right;font-weight:700;")))
 
         extras = ui.TagList()
         if input.regime() == "cnrps":
