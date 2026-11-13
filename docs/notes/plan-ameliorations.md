@@ -48,6 +48,15 @@ actualisation des salaires, décote anticipée, bonifications, régime exception
 
 ## 3. Plan par vagues (impact × effort)
 
+> **Statut 2026-11-13** — **Vague 1 LIVRÉE** (taux de remplacement, explication du
+> taux + base légale, comparaison d'âges de départ + graphique, bonifications
+> CNRPS, départ anticipé CNRPS, coordination CNRPS+CNSS, indemnités familiales +
+> IRU, détails par période enrichis). **Vague 2 PARTIELLE** : livrés = survivants
+> (réversion + orphelins), objectif inverse (dichotomie), graphique. Restent :
+> net fiscal IRPP+CSS (cross-package), scénarios inflation, projection carrière,
+> CAVIS, bilingue FR/AR, export PDF. Déployé sur shinyapps via CD.
+
+
 ### Vague 1 — Quick wins (moteur prêt, effort faible, impact fort)
 
 - [ ] **Taux de remplacement brut** (`pension / dernier salaire annuel`) affiché en évidence. *(trivial)*
