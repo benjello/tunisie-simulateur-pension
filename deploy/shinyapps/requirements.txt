@@ -7,4 +7,5 @@
 shiny>=1.0
 openfisca-tunisia[pension] @ git+https://github.com/openfisca/openfisca-tunisia@master
 pandas>=2.0
+matplotlib>=3.8
 httpx>=0.27

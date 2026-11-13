@@ -295,6 +295,66 @@ def details_par_periode(
     return lignes
 
 
+# Sorties « survivants » (période mensuelle).
+SURVIVANTS = [
+    ("pension_de_reversion", "Pension de réversion du conjoint (mensuel)", "DT"),
+    ("pension_orphelins_totale", "Pensions d'orphelins — total (mensuel)", "DT"),
+]
+
+
+def calculer_survivants(
+    *, regime, annee_liquidation, pension_reference_mensuelle,
+    conjoint_eligible, nb_orphelins, nb_orphelins_pere_mere=0, timeout=30.0,
+):
+    """Pensions de survivants en cas de décès de l'assuré.
+
+    `pension_reference_mensuelle` = pension mensuelle du défunt (on branche
+    la pension simulée). Variables du moteur en période MENSUELLE.
+    """
+    mois = f"{annee_liquidation}-01"
+    ind = {
+        "age_deces": {mois: 65},
+        f"{regime}_pension_reference_deces": {mois: float(pension_reference_mensuelle)},
+        "conjoint_survivant_eligible": {mois: bool(conjoint_eligible)},
+        "nombre_orphelins_eligibles": {mois: int(nb_orphelins)},
+        "nombre_orphelins_pere_et_mere_eligibles": {mois: int(nb_orphelins_pere_mere)},
+    }
+    for cle, _lib, _u in SURVIVANTS:
+        ind[f"{regime}_{cle}"] = {mois: None}
+    sit = {"individus": {"ind0": ind}, "menages": {"m0": {"personne_de_reference": ["ind0"]}}}
+    g = _calculate(sit, timeout=timeout)["individus"]["ind0"]
+    return {cle: g.get(f"{regime}_{cle}", {}).get(mois) for cle, _lib, _u in SURVIVANTS}
+
+
+def objectif_inverse(
+    *, regime, annee_liquidation, carriere, age, pension_cible_annuelle,
+    options=None, timeout=30.0, duree_max=45,
+):
+    """Durée d'assurance (années) nécessaire pour atteindre une pension cible,
+    par dichotomie, à carrière/salaire donnés."""
+    options = options or {}
+
+    def pension_pour(duree):
+        sit = construire_situation(
+            regime=regime, annee_liquidation=annee_liquidation, carriere=carriere,
+            duree_assurance_annees=duree, age=age, **options)
+        return calculer(sit, regime=regime, annee_liquidation=annee_liquidation,
+                        timeout=timeout).get("pension") or 0.0
+
+    cible = float(pension_cible_annuelle)
+    hi = float(duree_max)
+    if pension_pour(hi) < cible:
+        return {"atteignable": False, "duree": hi, "pension": pension_pour(hi)}
+    lo = 0.0
+    for _ in range(24):
+        mid = (lo + hi) / 2
+        if pension_pour(mid) >= cible:
+            hi = mid
+        else:
+            lo = mid
+    return {"atteignable": True, "duree": round(hi, 2), "pension": pension_pour(hi)}
+
+
 def api_disponible(timeout: float = 3.0) -> bool:
     """Teste la disponibilité du moteur (message clair dans l'UI).
 

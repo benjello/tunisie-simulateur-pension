@@ -19,21 +19,28 @@ Lancer en local :
 
 from __future__ import annotations
 
-import httpx
-import pandas as pd
-from shiny import App, reactive, render, ui
+import matplotlib
 
-from openfisca_client import (
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
+import httpx  # noqa: E402
+import pandas as pd  # noqa: E402
+from shiny import App, reactive, render, ui  # noqa: E402
+
+from openfisca_client import (  # noqa: E402
     EXTRAS_CNRPS,
     REGIMES,
     SORTIES,
     age_a_la_liquidation,
     api_disponible,
     calculer,
+    calculer_survivants,
     carriere_constante,
     comparer_ages,
     construire_situation,
     details_par_periode,
+    objectif_inverse,
     taux_de_remplacement,
 )
 
@@ -117,6 +124,13 @@ app_ui = ui.page_sidebar(
             ui.input_checkbox("conjoint_sans_revenu", "Conjoint sans revenu"),
         ),
         ui.hr(),
+        ui.h6("Survivants (en cas de décès)"),
+        ui.input_checkbox("conjoint_survivant", "Conjoint survivant éligible"),
+        ui.input_numeric("nb_orphelins", "Nombre d'orphelins", 0, min=0, max=10, step=1),
+        ui.hr(),
+        ui.h6("Objectif inverse"),
+        ui.input_numeric("pension_cible", "Pension mensuelle visée (DT, 0 = désactivé)", 0, min=0, step=100),
+        ui.hr(),
         ui.input_action_button("calculer", "Calculer la pension", class_="btn-primary"),
         width=360,
     ),
@@ -129,8 +143,11 @@ app_ui = ui.page_sidebar(
                 ui.output_data_frame("grille")),
     ),
     ui.output_ui("resume"),
+    ui.output_ui("survivants"),
+    ui.output_ui("objectif"),
     ui.card(
         ui.card_header("Comparaison selon l'âge de départ (hypothèse : travail jusqu'à l'âge testé)"),
+        ui.output_plot("graphe_ages", height="280px"),
         ui.output_data_frame("comparaison"),
     ),
     ui.accordion(
@@ -287,6 +304,79 @@ def server(input, output, session):
                 extras,
             ),
         )
+
+    @render.ui
+    def survivants():
+        statut, contenu, _carriere, _duree, _opt = resultat()
+        if statut != "ok":
+            return ui.TagList()
+        if not (input.conjoint_survivant() or int(input.nb_orphelins() or 0) > 0):
+            return ui.TagList()
+        pension_an = contenu.get("pension") or 0.0
+        if pension_an <= 0:
+            return ui.TagList()
+        surv = calculer_survivants(
+            regime=input.regime(), annee_liquidation=int(input.annee_liq()),
+            pension_reference_mensuelle=pension_an / 12.0,
+            conjoint_eligible=bool(input.conjoint_survivant()),
+            nb_orphelins=int(input.nb_orphelins() or 0))
+        rows = [
+            ui.tags.tr(ui.tags.td("Pension de réversion du conjoint (mensuel)"),
+                       ui.tags.td(_fmt(surv.get("pension_de_reversion"), "DT"), style="text-align:right;")),
+            ui.tags.tr(ui.tags.td("Pensions d'orphelins — total (mensuel)"),
+                       ui.tags.td(_fmt(surv.get("pension_orphelins_totale"), "DT"), style="text-align:right;")),
+        ]
+        return ui.card(
+            ui.card_header("Survivants (en cas de décès de l'assuré)"),
+            ui.tags.table(ui.tags.tbody(*rows), class_="table table-sm"),
+            ui.markdown("*Calculé sur la pension simulée comme pension de référence du défunt.*"))
+
+    @render.ui
+    def objectif():
+        cible_mensuelle = float(input.pension_cible() or 0)
+        if cible_mensuelle <= 0:
+            return ui.TagList()
+        statut, _contenu, carriere, duree, options = resultat()
+        if statut != "ok":
+            return ui.TagList()
+        obj = objectif_inverse(
+            regime=input.regime(), annee_liquidation=int(input.annee_liq()),
+            carriere=carriere, age=_age(),
+            pension_cible_annuelle=cible_mensuelle * 12.0, options=options)
+        if obj["atteignable"]:
+            msg = (f"Pour une pension de **{cible_mensuelle:.0f} DT/mois**, il faut "
+                   f"**{obj['duree']:.1f} ans** d'assurance (vs {duree:.1f} actuellement), "
+                   f"à salaire constant.")
+            cls = "alert alert-success"
+        else:
+            msg = (f"La cible de **{cible_mensuelle:.0f} DT/mois** n'est pas atteignable "
+                   f"à ce salaire (max ≈ {(obj['pension'] or 0) / 12:.0f} DT/mois à {obj['duree']:.0f} ans).")
+            cls = "alert alert-warning"
+        return ui.div(ui.markdown(msg), class_=cls)
+
+    @render.plot
+    def graphe_ages():
+        statut, _contenu, carriere, duree, options = resultat()
+        fig, ax = plt.subplots()
+        if statut != "ok":
+            return fig
+        age = _age()
+        ages = sorted({a for a in [age - 2, age, 55, 57, 60, 62, 65, 67] if 50 <= a <= 70})
+        comp = comparer_ages(regime=input.regime(), annee_liquidation=int(input.annee_liq()),
+                             carriere=carriere, duree_assurance_annees=duree, age_base=age,
+                             ages=ages, options=options)
+        xs = [l["age"] for l in comp]
+        ys = [(l["pension"] or 0) / 12.0 for l in comp]
+        cols = ["#2c7fb8" if l["eligible"] else "#d0d0d0" for l in comp]
+        ax.bar([str(x) for x in xs], ys, color=cols)
+        ax.set_xlabel("Âge de départ")
+        ax.set_ylabel("Pension (DT/mois)")
+        ax.set_title("Pension mensuelle selon l'âge de départ")
+        for x, y in zip([str(x) for x in xs], ys):
+            if y > 0:
+                ax.text(x, y, f"{y:.0f}", ha="center", va="bottom", fontsize=8)
+        fig.tight_layout()
+        return fig
 
     @render.data_frame
     def comparaison():
