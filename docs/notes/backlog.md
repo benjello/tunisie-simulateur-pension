@@ -93,6 +93,12 @@ conversation. Origine : relais de la session « fiche de paie »
 
 ## Améliorations de l'app (todos priorisés)
 
+> **Plan approfondi et priorisé** (issu de 3 audits : veille Tunisie, veille
+> internationale, audit du moteur) : voir [`plan-ameliorations.md`](plan-ameliorations.md).
+> Il détaille 3 vagues (quick wins moteur-prêt / effort moyen / chantiers
+> upstream) et les différenciateurs. Les todos ci-dessous en sont un extrait.
+
+
 **Top 3 (fort impact, faible coût, s'appuie sur des variables déjà exposées) :**
 - [ ] **Taux de remplacement** : afficher `pension / dernier salaire` (indicateur clé).
 - [ ] **Explication du taux en clair** : « 40 % (10 premières années) + 2 %/an × N = … », mention du plafond quand il mord.
