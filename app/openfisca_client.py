@@ -114,6 +114,18 @@ def carriere_constante(
     return {annee_liquidation - k: float(salaire_annuel) for k in range(n)}
 
 
+# Sorties supplémentaires propres à la CNRPS (le moteur les calcule déjà).
+# (clé technique sans préfixe -> libellé, unité, période "an"/"mois")
+EXTRAS_CNRPS = [
+    ("age_requis", "Âge requis pour le départ", "an_val", "an"),
+    ("duree_requise_annees", "Durée requise (années)", "an_val", "an"),
+    ("bonifications", "Bonifications (trimestres)", "trim", "an"),
+    ("duree_assurance", "Durée d'assurance totale (trimestres)", "trim", "an"),
+    ("indemnites_familiales", "Indemnités familiales (mensuel)", "DT", "mois"),
+    ("indemnite_revenu_unique", "Indemnité de revenu unique (mensuel)", "DT", "mois"),
+]
+
+
 def construire_situation(
     *,
     regime: str,
@@ -121,23 +133,62 @@ def construire_situation(
     carriere: dict[int, float],
     duree_assurance_annees: float,
     age: int,
+    # Options CNRPS (ignorées pour RSNA) ----------------------------------
+    duree_cadre_actif: int = 0,
+    duree_militaire: int = 0,
+    mere_3_enfants: bool = False,
+    fonction_astreignante: bool = False,
+    depart_sur_demande: bool = False,
+    invalidite: bool = False,
+    cnss_duree_annees: float = 0.0,
+    nombre_enfants_charge: int = 0,
+    conjoint_sans_revenu: bool = False,
 ) -> dict:
     """Construit la situation JSON OpenFisca.
 
     - `carriere` : {année: salaire annuel (DT)} — saisie année par année.
-    - `duree_assurance_annees` : convertie en trimestres (× 4).
-    - La pension est calculée sur l'année de liquidation.
+    - `duree_assurance_annees` : durée de service de base, en années (× 4 = trim).
+    - Pour la CNRPS, les bonifications (cadre actif, militaire) et la
+      coordination avec la CNSS s'ajoutent à cette durée de base ; le départ
+      anticipé modifie l'âge/la durée requis.
     """
-    prefixe = regime
     an = str(annee_liquidation)
+    mois = f"{annee_liquidation}-01"
+    trim = int(round(duree_assurance_annees * 4))
 
     individu: dict = {
-        f"{prefixe}_salaire_de_base": {str(a): float(s) for a, s in carriere.items()},
-        f"{prefixe}_duree_assurance": {an: int(round(duree_assurance_annees * 4))},
+        f"{regime}_salaire_de_base": {str(a): float(s) for a, s in carriere.items()},
         "age": {an: int(age)},
     }
     for cle in SORTIES_CLES:
-        individu[f"{prefixe}_{cle}"] = {an: None}
+        individu[f"{regime}_{cle}"] = {an: None}
+
+    if regime == "cnrps":
+        # Durée de base annuelle ; les bonifications s'y ajoutent via le moteur.
+        individu["cnrps_duree_assurance_annuelle"] = {an: trim}
+        if duree_cadre_actif:
+            individu["duree_service_cadre_actif"] = {an: int(duree_cadre_actif)}
+        if duree_militaire:
+            individu["duree_service_militaire"] = {an: int(duree_militaire)}
+        if mere_3_enfants:
+            individu["mere_3_enfants"] = {an: True}
+        if fonction_astreignante:
+            individu["fonction_astreignante"] = {an: True}
+        if depart_sur_demande:
+            individu["depart_anticipe_sur_demande"] = {an: True}
+        if invalidite:
+            individu["invalidite_physique"] = {an: True}
+        if cnss_duree_annees:
+            individu["cnss_duree_assurance_annuelle"] = {an: int(round(cnss_duree_annees * 4))}
+        if nombre_enfants_charge:
+            individu["nombre_enfants_charge"] = {mois: int(nombre_enfants_charge)}
+        if conjoint_sans_revenu:
+            individu["conjoint_sans_revenu"] = {mois: True}
+        for cle, _lib, _u, per in EXTRAS_CNRPS:
+            cle_per = mois if per == "mois" else an
+            individu[f"cnrps_{cle}"] = {cle_per: None}
+    else:
+        individu["rsna_duree_assurance"] = {an: trim}
 
     return {
         "individus": {"ind0": individu},
@@ -148,11 +199,55 @@ def construire_situation(
 def calculer(
     situation: dict, *, regime: str, annee_liquidation: int, timeout: float = 30.0
 ) -> dict:
-    """Calcule la situation (API ou local) et renvoie les sorties à la liquidation."""
+    """Calcule la situation (API ou local) et renvoie les sorties à la liquidation.
+
+    Renvoie les sorties de base, plus les extras CNRPS si applicables.
+    """
     an = str(annee_liquidation)
+    mois = f"{annee_liquidation}-01"
     data = _calculate(situation, timeout=timeout)
     individu = data["individus"]["ind0"]
-    return {cle: individu.get(f"{regime}_{cle}", {}).get(an) for cle in SORTIES_CLES}
+    res = {cle: individu.get(f"{regime}_{cle}", {}).get(an) for cle in SORTIES_CLES}
+    if regime == "cnrps":
+        for cle, _lib, _u, per in EXTRAS_CNRPS:
+            cle_per = mois if per == "mois" else an
+            res[cle] = individu.get(f"cnrps_{cle}", {}).get(cle_per)
+    return res
+
+
+def taux_de_remplacement(pension_annuelle, dernier_salaire_annuel):
+    """Pension / dernier salaire (None si indisponible)."""
+    if not pension_annuelle or not dernier_salaire_annuel:
+        return None
+    return pension_annuelle / dernier_salaire_annuel
+
+
+def comparer_ages(
+    *, regime, annee_liquidation, carriere, duree_assurance_annees, age_base,
+    ages, options=None, timeout=30.0,
+):
+    """Compare la pension selon l'âge de départ.
+
+    Hypothèse : l'assuré travaille jusqu'à l'âge testé → la durée augmente d'une
+    année par année supplémentaire travaillée (approximation lisible).
+    """
+    options = options or {}
+    lignes = []
+    for a in ages:
+        duree = max(0.0, duree_assurance_annees + (a - age_base))
+        sit = construire_situation(
+            regime=regime, annee_liquidation=annee_liquidation, carriere=carriere,
+            duree_assurance_annees=duree, age=int(a), **options,
+        )
+        r = calculer(sit, regime=regime, annee_liquidation=annee_liquidation, timeout=timeout)
+        lignes.append({
+            "age": int(a),
+            "duree_annees": round(duree, 2),
+            "taux": r.get("taux_de_liquidation"),
+            "eligible": bool(r.get("eligible")),
+            "pension": r.get("pension"),
+        })
+    return lignes
 
 
 def details_par_periode(
@@ -184,6 +279,19 @@ def details_par_periode(
                 "unite": unite,
             }
         )
+    if regime == "cnrps":
+        for cle, libelle, unite, per in EXTRAS_CNRPS:
+            if resultats.get(cle) is None:
+                continue
+            lignes.append(
+                {
+                    "variable": f"cnrps_{cle}",
+                    "libelle": libelle,
+                    "periode": f"{annee_liquidation}-01" if per == "mois" else str(annee_liquidation),
+                    "valeur": resultats.get(cle),
+                    "unite": unite,
+                }
+            )
     return lignes
 
 
